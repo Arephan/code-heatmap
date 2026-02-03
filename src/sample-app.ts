@@ -61,6 +61,13 @@ app.get('/api/cheap', (req, res) => {
   res.json({ data: simple, endpoint: 'cheap' });
 });
 
+/**
+ * Health check endpoint
+ */
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok' });
+});
+
 // Support functions
 function processUserData(userId: string) {
   global.trackLine('sample-app.ts', 54);
