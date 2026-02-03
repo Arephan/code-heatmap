@@ -1,13 +1,5 @@
-import express, { Express } from 'express';
+import express, { Express, Request, Response, NextFunction } from 'express';
 import Database from 'better-sqlite3';
-import * as fs from 'fs';
-import * as path from 'path';
-
-interface HeatmapSample {
-  file: string;
-  line: number;
-  count: number;
-}
 
 interface HeatmapData {
   [file: string]: {
@@ -17,15 +9,14 @@ interface HeatmapData {
 
 let currentHeatmap: HeatmapData = {};
 let db: Database.Database;
+let lineExecutions: { [key: string]: number } = {};
 
 export function initHeatmapAgent(options: {
   port?: number;
   dbPath?: string;
-  samplingInterval?: number;
 } = {}) {
   const port = options.port || 9999;
   const dbPath = options.dbPath || './heatmap.db';
-  const samplingInterval = options.samplingInterval || 1000; // ms
 
   // Initialize database
   db = new Database(dbPath);
@@ -42,42 +33,18 @@ export function initHeatmapAgent(options: {
     CREATE INDEX IF NOT EXISTS idx_file_line ON heatmap_samples(file, line);
   `);
 
-  // Create Express server
-  const app: Express = express();
-
-  // Middleware
-  app.use(express.json());
-
-  // Track line executions (simple in-memory sampling)
-  const lineExecutions: { [key: string]: number } = {};
-
-  // Intercept require to track line executions
-  const originalRequire = require.extensions['.js'];
-  require.extensions['.js'] = function (m: any, filename: string) {
-    const content = fs.readFileSync(filename, 'utf8');
-    const lines = content.split('\n');
-
-    // Wrap with instrumentation
-    let instrumented = content;
-    lines.forEach((line, idx) => {
-      if (line.trim() && !line.trim().startsWith('//')) {
-        const lineNum = idx + 1;
-        const key = `${filename}:${lineNum}`;
-        instrumented = instrumented.replace(
-          line,
-          `(function() { lineExecutions['${key}'] = (lineExecutions['${key}'] || 0) + 1; })(); ${line}`
-        );
-      }
-    });
-
-    return originalRequire.call(this, m, filename);
+  // Expose global tracking function
+  (global as any).trackLine = (file: string, line: number) => {
+    const key = `${file}:${line}`;
+    lineExecutions[key] = (lineExecutions[key] || 0) + 1;
   };
 
-  // Expose lineExecutions to global scope (for instrumented code to access)
-  (global as any).lineExecutions = lineExecutions;
+  // Create Express server
+  const app: Express = express();
+  app.use(express.json());
 
   // API Endpoint: Get current heatmap
-  app.get('/api/heatmap', (req, res) => {
+  app.get('/api/heatmap', (req: Request, res: Response) => {
     const heatmap: HeatmapData = {};
 
     Object.entries(lineExecutions).forEach(([key, count]) => {
@@ -95,7 +62,7 @@ export function initHeatmapAgent(options: {
   });
 
   // API Endpoint: Get heatmap with stats
-  app.get('/api/heatmap/stats', (req, res) => {
+  app.get('/api/heatmap/stats', (req: Request, res: Response) => {
     const totalLines = Object.keys(lineExecutions).length;
     const totalExecutions = Object.values(lineExecutions).reduce((a, b) => a + b, 0);
     const hottest = Object.entries(lineExecutions)
@@ -111,16 +78,14 @@ export function initHeatmapAgent(options: {
   });
 
   // API Endpoint: Reset heatmap
-  app.post('/api/heatmap/reset', (req, res) => {
-    Object.keys(lineExecutions).forEach((key) => {
-      delete lineExecutions[key];
-    });
+  app.post('/api/heatmap/reset', (req: Request, res: Response) => {
+    lineExecutions = {};
     currentHeatmap = {};
     res.json({ message: 'Heatmap reset' });
   });
 
   // API Endpoint: Health check
-  app.get('/health', (req, res) => {
+  app.get('/health', (req: Request, res: Response) => {
     res.json({ status: 'ok' });
   });
 

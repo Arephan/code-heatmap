@@ -1,6 +1,10 @@
 import express from 'express';
 import { initHeatmapAgent } from './agent';
 
+declare global {
+  function trackLine(file: string, line: number): void;
+}
+
 const app = express();
 
 // Initialize heatmap agent (runs on port 9999)
@@ -9,56 +13,63 @@ initHeatmapAgent({
   dbPath: './heatmap.db',
 });
 
-// Sample endpoints with different execution frequencies
-
 /**
- * Hot endpoint - called 100x
- * Processing user data, heavy computation
+ * Hot endpoint - will be called 100x
  */
 app.get('/api/expensive', (req, res) => {
+  global.trackLine('sample-app.ts', 18);
   const userId = req.query.id || '1';
   
-  // Simulate expensive operation
+  global.trackLine('sample-app.ts', 20);
   const userData = processUserData(userId as string);
+  
+  global.trackLine('sample-app.ts', 22);
   const enrichedData = enrichUserProfile(userData);
+  
+  global.trackLine('sample-app.ts', 24);
   const cached = cacheResult(enrichedData);
   
+  global.trackLine('sample-app.ts', 26);
   res.json({ data: cached, endpoint: 'expensive' });
 });
 
 /**
- * Medium endpoint - called 10x
- * Some processing, moderate load
+ * Medium endpoint - will be called 10x
  */
 app.get('/api/medium', (req, res) => {
+  global.trackLine('sample-app.ts', 33);
   const filter = req.query.filter || 'all';
   
+  global.trackLine('sample-app.ts', 35);
   const results = fetchResults(filter as string);
+  
+  global.trackLine('sample-app.ts', 37);
   const transformed = transformResults(results);
   
+  global.trackLine('sample-app.ts', 39);
   res.json({ data: transformed, endpoint: 'medium' });
 });
 
 /**
- * Cold endpoint - called 1x
- * Minimal processing
+ * Cold endpoint - will be called 1x
  */
 app.get('/api/cheap', (req, res) => {
+  global.trackLine('sample-app.ts', 46);
   const simple = getSimpleData();
+  
+  global.trackLine('sample-app.ts', 48);
   res.json({ data: simple, endpoint: 'cheap' });
 });
 
-/**
- * Support functions (will show in heatmap)
- */
+// Support functions
 function processUserData(userId: string) {
-  // Hot function - called 100 times
+  global.trackLine('sample-app.ts', 54);
   const user = { id: userId, name: `User${userId}` };
   return user;
 }
 
 function enrichUserProfile(user: any) {
-  // Hot function - called 100 times
+  global.trackLine('sample-app.ts', 59);
   return {
     ...user,
     profile: { created: new Date(), verified: true },
@@ -66,32 +77,33 @@ function enrichUserProfile(user: any) {
 }
 
 function cacheResult(data: any) {
-  // Hot function - called 100 times
-  return data; // In real app, would cache
+  global.trackLine('sample-app.ts', 65);
+  return data;
 }
 
 function fetchResults(filter: string) {
-  // Medium function - called 10 times
+  global.trackLine('sample-app.ts', 69);
   return [{ id: 1, name: 'Item 1' }, { id: 2, name: 'Item 2' }];
 }
 
 function transformResults(results: any[]) {
-  // Medium function - called 10 times
+  global.trackLine('sample-app.ts', 73);
   return results.map((r) => ({ ...r, transformed: true }));
 }
 
 function getSimpleData() {
-  // Cold function - called 1 time
+  global.trackLine('sample-app.ts', 77);
   return { message: 'Hello' };
 }
 
 // Start app on port 3000
 app.listen(3000, () => {
   console.log('📱 Sample app running on http://localhost:3000');
-  console.log('   GET /api/expensive - hot endpoint (100 calls)');
-  console.log('   GET /api/medium    - medium endpoint (10 calls)');
-  console.log('   GET /api/cheap     - cold endpoint (1 call)');
+  console.log('   GET /api/expensive - hot endpoint (will be called 100x)');
+  console.log('   GET /api/medium    - medium endpoint (will be called 10x)');
+  console.log('   GET /api/cheap     - cold endpoint (will be called 1x)');
   console.log('');
   console.log('🔥 Heatmap agent on http://localhost:9999');
   console.log('   GET /api/heatmap');
+  console.log('   GET /api/heatmap/stats');
 });
