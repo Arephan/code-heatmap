@@ -4,12 +4,15 @@ Universal code execution heatmap tool. See which lines of code execute most freq
 
 ## Features
 
-- 📊 Track line-level execution counts
-- 🔥 Heatmap visualization (hot → cold)
-- 🚀 Works with Node.js, Python, Go, and any language
+- 📊 **Track line-level execution counts** with minimal overhead
+- 🔥 **Heatmap visualization** (hot → cold)
+- 🚀 **Two tracking modes:**
+  - **Manual**: Explicit `trackLine()` calls (most accurate)
+  - **Automatic**: Source map + stack trace analysis (zero code changes)
 - 🎯 Drop-in agent for production use
 - 💾 SQLite persistence
 - 🌐 REST API for querying
+- 🔧 DWARF debug info mapping support
 
 ## Quick Start
 
